@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type SubLink = { label: string; href: string };
 type NavItem = { label: string; subLabel?: string; columns: { title?: string; links: SubLink[] }[] };
@@ -111,6 +111,7 @@ export default function SiteNav() {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 30);
@@ -118,6 +119,32 @@ export default function SiteNav() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    };
+  }, []);
+
+  const cancelClose = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => {
+      setOpenIdx(null);
+      closeTimer.current = null;
+    }, 180);
+  };
+
+  const openMenu = (i: number) => {
+    cancelClose();
+    setOpenIdx(i);
+  };
 
   const onLight = scrolled || openIdx !== null || mobileOpen;
 
@@ -129,7 +156,8 @@ export default function SiteNav() {
           ? "bg-background/95 backdrop-blur border-b border-border/60 text-foreground"
           : "bg-transparent text-white"
       }`}
-      onMouseLeave={() => setOpenIdx(null)}
+      onMouseEnter={cancelClose}
+      onMouseLeave={scheduleClose}
     >
       <a
         href="#main"
@@ -157,7 +185,8 @@ export default function SiteNav() {
             {NAV.map((item, i) => (
               <li
                 key={item.label}
-                onMouseEnter={() => setOpenIdx(i)}
+                onMouseEnter={() => openMenu(i)}
+                onFocus={() => openMenu(i)}
                 className="relative"
               >
                 <button
@@ -165,6 +194,7 @@ export default function SiteNav() {
                   className="px-4 py-2 text-[15px] font-light tracking-wide text-current opacity-90 transition hover:opacity-100"
                   aria-expanded={openIdx === i}
                   aria-haspopup="true"
+                  onClick={() => (openIdx === i ? setOpenIdx(null) : openMenu(i))}
                 >
                   {item.label}
                 </button>
@@ -231,12 +261,13 @@ export default function SiteNav() {
 
       {/* Mega menu panel */}
       <div
-        className={`pointer-events-none absolute inset-x-0 top-full origin-top overflow-hidden border-b border-border/60 bg-background transition-all duration-300 ${
+        className={`absolute inset-x-0 top-full origin-top overflow-hidden border-b border-border/60 bg-background transition-[opacity,transform] duration-300 ${
           openIdx !== null
             ? "pointer-events-auto opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-2"
+            : "pointer-events-none opacity-0 -translate-y-1"
         }`}
-        onMouseEnter={() => openIdx !== null && setOpenIdx(openIdx)}
+        onMouseEnter={cancelClose}
+        onMouseLeave={scheduleClose}
       >
         {openIdx !== null && (
           <div className="mx-auto grid max-w-[1440px] grid-cols-12 gap-10 px-10 py-12">
